@@ -243,6 +243,15 @@ class Table(object):
         """
         return len([t for t in self.tracks if t.audio])
 
+    def getLastAudioTrack(self):
+        """
+        @returns: the number of last audio track on the CD
+        @rtype:   int
+        """
+        if self.hasDataTracks() and self.tracks[-1].audio:
+            return len(self.tracks)
+        return self.getAudioTracks()
+
     def hasDataTracks(self):
         """
         @returns: whether this disc contains data tracks
@@ -394,7 +403,7 @@ class Table(object):
         query = urllib.urlencode({
             'id': discid,
             'toc': ' '.join([str(v) for v in values]),
-            'tracks': self.getAudioTracks(),
+            'tracks': self.getLastAudioTrack(),
         })
 
         return urlparse.urlunparse((
@@ -436,7 +445,7 @@ class Table(object):
 
         @rtype:   list of int
         """
-        # MusicBrainz disc id does not take into account data tracks
+        # MusicBrainz disc id does not take into account the last data tracks
 
         result = []
 
@@ -444,14 +453,13 @@ class Table(object):
         result.append(1)
 
         # number of last audio track
-        result.append(self.getAudioTracks())
+        result.append(self.getLastAudioTrack())
 
         leadout = self.leadout
         # if the disc is multi-session, last track is the data track,
         # and we should subtract 11250 + 150 from the last track's offset
         # for the leadout
-        if self.hasDataTracks():
-            assert not self.tracks[-1].audio
+        if self.hasDataTracks() and not self.tracks[-1].audio:
             leadout = self.tracks[-1].getIndex(1).absolute - 11250 - 150
 
         # treat leadout offset as track 0 offset
@@ -461,7 +469,7 @@ class Table(object):
         for i in range(1, 100):
             try:
                 track = self.tracks[i - 1]
-                if not track.audio:
+                if not track.audio and i == len(self.tracks):
                     continue
                 offset = track.getIndex(1).absolute + 150
                 result.append(offset)
